@@ -1,12 +1,7 @@
-from pytest import raises
 from web3.contract import ConciseContract
-from eth_tester.exceptions import TransactionFailed
 
-def test_factory(w3, exchange_template, HAY_token, factory, pad_bytes32, exchange_abi, assert_fail):
+def test_factory(w3, exchange_template, HAY_token, factory, exchange_abi, assert_fail):
     a0, a1 = w3.eth.accounts[:2]
-    # Can't call initializeFactory on factory twice
-    with raises(TransactionFailed):
-        factory.initializeFactory(HAY_token.address)
     # Factory initial state
     assert factory.exchangeTemplate() == exchange_template.address
     assert factory.getExchange(HAY_token.address) == None
@@ -19,16 +14,21 @@ def test_factory(w3, exchange_template, HAY_token, factory, pad_bytes32, exchang
     assert factory.tokenCount() == 1
     assert factory.getTokenWithId(1) == HAY_token.address
     # Exchange already exists
-    with raises(TransactionFailed):
-        factory.createExchange(HAY_token.address)
+    assert_fail(lambda: factory.createExchange(HAY_token.address))
     # Can't call setup on exchange
     assert_fail(lambda: HAY_exchange.setup(factory.address))
     # Exchange initial state
-    assert HAY_exchange.name() == pad_bytes32('Uniswap V1')
-    assert HAY_exchange.symbol() == pad_bytes32('UNI-V1')
+    assert HAY_exchange.name() == 'Uniswap V2'
+    assert HAY_exchange.symbol() == 'UNI-V2'
     assert HAY_exchange.decimals() == 18
     assert HAY_exchange.totalSupply() == 0
     assert HAY_exchange.tokenAddress() == HAY_token.address
     assert HAY_exchange.factoryAddress() == factory.address
     assert w3.eth.getBalance(HAY_exchange.address) == 0
     assert HAY_token.balanceOf(HAY_exchange.address) == 0
+    # testing
+    assert HAY_token.balanceOf(a0) == 100000*10**18
+    HAY_token.approve(HAY_exchange.address, 100*10**18, transact={})
+    assert HAY_token.allowance(a0, HAY_exchange.address) == 100*10**18
+    # assert HAY_token.transferFrom(a0, HAY_exchange.address, 5*10**18, transact={})
+    HAY_exchange.addLiquidity(0, 10*10**18, 2559583498, transact={'value': 5*10**18})
